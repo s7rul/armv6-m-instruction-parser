@@ -2,6 +2,9 @@ pub fn add(left: usize, right: usize) -> usize {
     left + right
 }
 
+pub mod instructons;
+pub mod registers;
+
 #[cfg(test)]
 mod tests {
     use super::*;
