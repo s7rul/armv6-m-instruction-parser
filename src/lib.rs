@@ -1,3 +1,4 @@
+pub mod conditions;
 pub mod instructons;
 pub mod registers;
 
