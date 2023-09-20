@@ -45,12 +45,49 @@ impl TryFrom<u8> for Register {
     }
 }
 
+#[derive(Debug)]
+#[repr(u8)]
+pub enum SpecialRegister {
+    APSR = 0,
+    IAPSR = 1,
+    EAPSR = 2,
+    XPSR = 3,
+    IPSR = 5,
+    EPSR = 6,
+    IEPSR = 7,
+    MSP = 8,
+    PSP = 9,
+    PRIMASK = 16,
+    CONTROL = 20,
+}
+
+impl TryFrom<u8> for SpecialRegister {
+    type Error = &'static str;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(SpecialRegister::APSR),
+            1 => Ok(SpecialRegister::IAPSR),
+            2 => Ok(SpecialRegister::EAPSR),
+            3 => Ok(SpecialRegister::XPSR),
+            5 => Ok(SpecialRegister::IPSR),
+            6 => Ok(SpecialRegister::EPSR),
+            7 => Ok(SpecialRegister::IEPSR),
+            8 => Ok(SpecialRegister::MSP),
+            9 => Ok(SpecialRegister::PSP),
+            16 => Ok(SpecialRegister::PRIMASK),
+            20 => Ok(SpecialRegister::CONTROL),
+            _ => Err("Not a valid special register."),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn from_u8_to_Register() {
+    fn from_u8_to_register() {
         assert_eq!(0.try_into(), Ok(Register::R0));
         assert_eq!(1.try_into(), Ok(Register::R1));
         assert_eq!(2.try_into(), Ok(Register::R2));
