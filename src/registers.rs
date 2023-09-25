@@ -82,6 +82,16 @@ impl TryFrom<u8> for SpecialRegister {
     }
 }
 
+pub fn register_list_from_bit_array(bit_array: u16) -> Vec<Register> {
+    let mut ret = vec![];
+    for i in 0..16 {
+        if (bit_array >> i) & 0b1 == 0b1 {
+            ret.push(i.try_into().unwrap())
+        }
+    }
+    ret
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -109,14 +119,43 @@ mod tests {
             Err::<Register, &str>("Not a valid register.")
         )
     }
-}
 
-pub fn register_list_from_bit_array(bit_array: u16) -> Vec<Register> {
-    let mut ret = vec![];
-    for i in 0..16 {
-        if (bit_array >> i) & 0b1 == 0b1 {
-            ret.push(i.try_into().unwrap())
-        }
+    #[test]
+    fn register_list() {
+        assert_eq!(register_list_from_bit_array(0), vec![]);
+        assert_eq!(register_list_from_bit_array(0b1), vec![Register::R0]);
+        assert_eq!(
+            register_list_from_bit_array(0b111),
+            vec![Register::R0, Register::R1, Register::R2]
+        );
+        assert_eq!(
+            register_list_from_bit_array(0b1000000000000000),
+            vec![Register::PC]
+        );
+        assert_eq!(
+            register_list_from_bit_array(0b1110000000000000),
+            vec![Register::SP, Register::LR, Register::PC]
+        );
+        assert_eq!(
+            register_list_from_bit_array(0xffff),
+            vec![
+                Register::R0,
+                Register::R1,
+                Register::R2,
+                Register::R3,
+                Register::R4,
+                Register::R5,
+                Register::R6,
+                Register::R7,
+                Register::R8,
+                Register::R9,
+                Register::R10,
+                Register::R11,
+                Register::R12,
+                Register::SP,
+                Register::LR,
+                Register::PC
+            ]
+        );
     }
-    ret
 }
