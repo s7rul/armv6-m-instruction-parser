@@ -118,7 +118,9 @@ pub enum Operation {
         rm: Register,
         rn: Register,
     },
-    CPS,
+    CPS {
+        im: bool,
+    },
     CPY,
     CMB {
         option: u8,

@@ -110,3 +110,13 @@ mod tests {
         )
     }
 }
+
+pub fn register_list_from_bit_array(bit_array: u16) -> Vec<Register> {
+    let mut ret = vec![];
+    for i in 0..16 {
+        if (bit_array >> i) & 0b1 == 0b1 {
+            ret.push(i.try_into().unwrap())
+        }
+    }
+    ret
+}
