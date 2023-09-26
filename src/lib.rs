@@ -49,7 +49,7 @@ fn parse_16bit_operation(input: u16) -> Result<Operation, ()> {
     let opcode = (input >> 10) & 0x3f;
     match opcode {
         0b000000..=0b001111 => {
-            todo!() // A5-85
+            parse_arith_instructions(input) // A5-85
         }
         0b010000 => {
             todo!() // A5-86
@@ -81,6 +81,131 @@ fn parse_16bit_operation(input: u16) -> Result<Operation, ()> {
         }
         0b111000..=0b111001 => {
             todo!() // A6-119
+        }
+        _ => Err(()),
+    }
+}
+
+fn parse_arith_instructions(input: u16) -> Result<Operation, ()> {
+    // A5-85
+    let opcode = (input >> 9) & 0x1f;
+    match opcode {
+        0b00000..=0b00011 => {
+            //LSL
+            let imm = (input >> 6) & 0x1f;
+            let rm: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
+            let rd: Register = ((input & 0x7) as u8).try_into().unwrap();
+            if imm > 0 {
+                Ok(Operation::LSLImm {
+                    imm: imm as u32,
+                    rm: rm,
+                    rd: rd,
+                })
+            } else {
+                Ok(Operation::MOVRegT2 { rm: rm, rd: rd })
+            }
+        }
+        0b00100..=0b00111 => {
+            //LSR
+            let imm = (input >> 6) & 0x1f;
+            let rm: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
+            let rd: Register = ((input & 0x7) as u8).try_into().unwrap();
+            Ok(Operation::LSRImm {
+                imm: imm as u32,
+                rm: rm,
+                rd: rd,
+            })
+        }
+        0b01000..=0b01011 => {
+            //ASR
+            let imm = (input >> 6) & 0x1f;
+            let rm: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
+            let rd: Register = ((input & 0x7) as u8).try_into().unwrap();
+            Ok(Operation::ASRImm {
+                imm: imm as u32,
+                rm: rm,
+                rd: rd,
+            })
+        }
+        0b01100 => {
+            // ADD reg
+            let rm: Register = (((input >> 6) & 0x7) as u8).try_into().unwrap();
+            let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
+            let rd: Register = ((input & 0x7) as u8).try_into().unwrap();
+            Ok(Operation::ADDRegT1 {
+                rm: rm,
+                rn: rn,
+                rd: rd,
+            })
+        }
+        0b01101 => {
+            // SUB reg
+            let rm: Register = (((input >> 6) & 0x7) as u8).try_into().unwrap();
+            let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
+            let rd: Register = ((input & 0x7) as u8).try_into().unwrap();
+            Ok(Operation::ADDRegT1 {
+                rm: rm,
+                rn: rn,
+                rd: rd,
+            })
+        }
+        0b01110 => {
+            // ADD 3bit imm
+            let imm: Register = (((input >> 6) & 0x7) as u8).try_into().unwrap();
+            let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
+            let rd: Register = ((input & 0x7) as u8).try_into().unwrap();
+            Ok(Operation::ADDImmT1 {
+                imm: imm as u32,
+                rn: rn,
+                rd: rd,
+            })
+        }
+        0b01111 => {
+            // SUB 3bit imm
+            let imm: Register = (((input >> 6) & 0x7) as u8).try_into().unwrap();
+            let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
+            let rd: Register = ((input & 0x7) as u8).try_into().unwrap();
+            Ok(Operation::SUBImmT1 {
+                imm: imm as u32,
+                rn: rn,
+                rd: rd,
+            })
+        }
+        0b10000..=0b10011 => {
+            // MOV imm
+            let imm = input & 0xff;
+            let rd: Register = (((input >> 8) & 0x7) as u8).try_into().unwrap();
+            Ok(Operation::MOVImm {
+                rd: rd,
+                imm: imm as u32,
+            })
+        }
+        0b10100..=0b10111 => {
+            // CMP imm
+            let imm = input & 0xff;
+            let rn: Register = (((input >> 8) & 0x7) as u8).try_into().unwrap();
+            Ok(Operation::CMPImm {
+                rn: rn,
+                imm: imm as u32,
+            })
+        }
+        0b11000..=0b11011 => {
+            // ADD 8bit imm
+            let imm = input & 0xff;
+            let rdn: Register = (((input >> 8) & 0x7) as u8).try_into().unwrap();
+            Ok(Operation::ADDImmT2 {
+                imm: imm as u32,
+                rdn: rdn,
+            })
+        }
+        0b11100..=0b11111 => {
+            // SUB 8bit imm
+            let imm = input & 0xff;
+            let rdn: Register = (((input >> 8) & 0x7) as u8).try_into().unwrap();
+            Ok(Operation::SUBImmT2 {
+                rdn: rdn,
+                imm: imm as u32,
+            })
         }
         _ => Err(()),
     }
