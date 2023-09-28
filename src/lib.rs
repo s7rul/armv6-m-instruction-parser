@@ -10,40 +10,86 @@ pub fn parse(input: &[u8]) -> Result<Instruction, ()> {
     if input.len() < 2 {
         return Err(());
     }
+    let mut instruction_bytes1: [u8; 2] = [0; 2];
+    instruction_bytes1.copy_from_slice(&input[0..2]);
+    let instruction_bits1 = u16::from_le_bytes(instruction_bytes1);
 
-    match (input[0] & 0b11111) >> 2 {
+    match (instruction_bits1 >> 11) & 0x1f {
         0b11101 | 0b11110 | 0b11111 => {
             // Check if it is a 32-bit instruction.
             if input.len() < 4 {
                 return Err(());
             };
-            let mut instruction_bytes1: [u8; 2] = [0; 2];
             let mut instruction_bytes2: [u8; 2] = [0; 2];
-            instruction_bytes1.copy_from_slice(&input[0..2]);
             instruction_bytes2.copy_from_slice(&input[2..4]);
-            let instruction_bits1 = u16::from_le_bytes(instruction_bytes1);
             let instruction_bits2 = u16::from_le_bytes(instruction_bytes2);
             let instruction_bits: u32 = (instruction_bits1 as u32) << 16 | instruction_bits2 as u32;
+            println!("instruction bits: {:#034b}", instruction_bits);
             Ok(Instruction {
                 width: InstructionWidth::Bit32,
                 operation: parse_32bit_operation(instruction_bits)?,
             })
         }
         _ => {
-            let mut instruction_bytes: [u8; 2] = [0; 2];
-            instruction_bytes.copy_from_slice(&input[0..2]);
-            let instruction_bits = u16::from_le_bytes(instruction_bytes);
-            println!("instruction bits: {:#018b}", instruction_bits);
+            println!("instruction bits: {:#018b}", instruction_bits1);
             Ok(Instruction {
                 width: InstructionWidth::Bit16,
-                operation: parse_16bit_operation(instruction_bits)?,
+                operation: parse_16bit_operation(instruction_bits1)?,
             })
         }
     }
 }
 
 fn parse_32bit_operation(input: u32) -> Result<Operation, ()> {
-    todo!()
+    let op1 = (input >> 27) & 0x3;
+    let op = (input >> 15) & 0x1;
+
+    match (op1, op) {
+        (0b10, 0b1) => {
+            // brach and misc control
+            parse_branch_misc_ctrl(input)
+        }
+        (_, _) => Err(()),
+    }
+}
+
+fn parse_branch_misc_ctrl(input: u32) -> Result<Operation, ()> {
+    let op1 = (input >> 20) & 0x7f;
+    let op2 = (input >> 12) & 0x7;
+
+    match (op2, op1) {
+        (0b000 | 0b010, 0b0111000..=0b0111001) => {
+            // MSR
+            todo!()
+        }
+        (0b000 | 0b010, 0b0111011) => {
+            // misc control
+            todo!()
+        }
+        (0b000 | 0b010, 0b0111110..=0b0111111) => {
+            // MRS
+            todo!()
+        }
+        (0b111, 0b1111111) => {
+            // Permanently Undefined
+            Err(())
+        }
+        (0b101 | 0b111, _) => {
+            // BL
+            let s = (input >> 26) & 0x1;
+            let j1 = (input >> 13) & 0x1;
+            let j2 = (input >> 11) & 0x1;
+            let i1 = !(j1 ^ s) & 0x1;
+            let i2 = !(j2 ^ s) & 0x1;
+            let imm10 = (input >> 16) & 0x3ff;
+            let imm11 = input & 0x7ff;
+            let imm = ((s << 24) | (i1 << 23) | (i2 << 22) | (imm10 << 12) | (imm11 << 1))
+                .sign_extend(25);
+
+            Ok(Operation::BL { imm: imm })
+        }
+        _ => Err(()),
+    }
 }
 
 fn parse_16bit_operation(input: u16) -> Result<Operation, ()> {
@@ -527,7 +573,7 @@ fn parse_arith_instructions(input: u16) -> Result<Operation, ()> {
         }
         0b01110 => {
             // ADD 3bit imm
-            let imm = ((input >> 6) & 0x7);
+            let imm = (input >> 6) & 0x7;
             let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
             let rd: Register = ((input & 0x7) as u8).try_into().unwrap();
             Ok(Operation::ADDImmT1 {
