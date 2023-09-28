@@ -2,6 +2,7 @@ pub mod conditions;
 pub mod instructons;
 pub mod registers;
 
+use conditions::Condition;
 use instructons::*;
 use registers::*;
 
@@ -52,35 +53,410 @@ fn parse_16bit_operation(input: u16) -> Result<Operation, ()> {
             parse_arith_instructions(input) // A5-85
         }
         0b010000 => {
-            todo!() // A5-86
+            parse_data_processing_instruction(input) // A5-86
         }
         0b010001 => {
-            todo!() // A5-86
+            parse_special_data_branch_exchange_instruction(input) // A5-86
         }
         0b010010..=0b010011 => {
-            todo!() // A6-141
+            // A6-141
+            // LDR literal
+            let rt: Register = (((input >> 8) & 0x7) as u8).try_into().unwrap();
+            let imm = ((input & 0xff) << 2) as u32;
+            Ok(Operation::LDRLiteral { rt: rt, imm: imm })
         }
         0b010100..=0b100111 => {
-            todo!() // A5-88
+            // A5-88
+            parse_load_store_instruction(input)
         }
         0b101000..=0b101001 => {
-            todo!() // A6-115
+            // A6-115
+            let rd: Register = (((input >> 8) & 0x7) as u8).try_into().unwrap();
+            let imm = ((input & 0xff) << 2) as u32;
+            Ok(Operation::ADR { rd: rd, imm: imm })
         }
         0b101010..=0b101011 => {
-            todo!() // A6-111
+            // A6-111
+            let rd: Register = (((input >> 8) & 0x7) as u8).try_into().unwrap();
+            let imm = ((input & 0xff) << 2) as u32;
+            Ok(Operation::ADDImmSPT1 { rd: rd, imm: imm })
         }
-        0b101100..=0b101111 => parse_misc_16_bit(input),
+        0b101100..=0b101111 => {
+            parse_misc_16_bit(input) // A5-86
+        }
         0b110000..=0b110001 => {
-            todo!() // A6-175
+            // A6-175
+            let rn: Register = (((input >> 8) & 0x7) as u8).try_into().unwrap();
+            let reg_list_bits = input & 0xff;
+            let reg_list = register_list_from_bit_array(reg_list_bits);
+            Ok(Operation::STM {
+                rn: rn,
+                reg_list: reg_list,
+            })
         }
         0b110010..=0b110011 => {
-            todo!() // A6-137
+            // A6-137
+            let rn: Register = (((input >> 8) & 0x7) as u8).try_into().unwrap();
+            let reg_list_bits = input & 0xff;
+            let reg_list = register_list_from_bit_array(reg_list_bits);
+            Ok(Operation::LDM {
+                rn: rn,
+                reg_list: reg_list,
+            })
         }
         0b110100..=0b110111 => {
-            todo!() // A5-90
+            // A5-90
+            parse_conditional_branch(input)
         }
         0b111000..=0b111001 => {
-            todo!() // A6-119
+            // A6-119
+            // Unconditional branch
+            let imm = ((input & 0x7ff) << 1).sign_extend(12);
+            Ok(Operation::BT2 { imm: imm })
+        }
+        _ => Err(()),
+    }
+}
+
+fn parse_conditional_branch(input: u16) -> Result<Operation, ()> {
+    let opcode = (input >> 8) & 0xf;
+
+    match opcode {
+        0b1110 => Err(()), // Permanently undefined
+        0b1111 => {
+            // SVC
+            let imm = (input & 0xff) as u32;
+            Ok(Operation::SVC { imm: imm })
+        }
+        _ => {
+            // B
+            let imm = ((input & 0xff) << 1).sign_extend(9);
+            let cond: Condition = (((input >> 8) & 0xf) as u8).try_into()?;
+            Ok(Operation::BT1 {
+                cond: cond,
+                imm: imm,
+            })
+        }
+    }
+}
+
+fn parse_load_store_instruction(input: u16) -> Result<Operation, ()> {
+    let op_a = (input >> 12) & 0xf;
+    let op_b = (input >> 9) & 0x7;
+
+    match (op_a, op_b) {
+        (0b0101, op_b) => match op_b {
+            0b000 => {
+                // STR reg
+                let rm: Register = (((input >> 6) & 0x7) as u8).try_into().unwrap();
+                let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
+                let rt: Register = ((input & 0x7) as u8).try_into().unwrap();
+                Ok(Operation::STRReg {
+                    rm: rm,
+                    rn: rn,
+                    rt: rt,
+                })
+            }
+            0b001 => {
+                // STRH reg
+                let rm: Register = (((input >> 6) & 0x7) as u8).try_into().unwrap();
+                let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
+                let rt: Register = ((input & 0x7) as u8).try_into().unwrap();
+                Ok(Operation::STRHReg {
+                    rm: rm,
+                    rn: rn,
+                    rt: rt,
+                })
+            }
+            0b010 => {
+                // STRB reg
+                let rm: Register = (((input >> 6) & 0x7) as u8).try_into().unwrap();
+                let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
+                let rt: Register = ((input & 0x7) as u8).try_into().unwrap();
+                Ok(Operation::STRBReg {
+                    rm: rm,
+                    rn: rn,
+                    rt: rt,
+                })
+            }
+            0b011 => {
+                // LDRSB reg
+                let rm: Register = (((input >> 6) & 0x7) as u8).try_into().unwrap();
+                let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
+                let rt: Register = ((input & 0x7) as u8).try_into().unwrap();
+                Ok(Operation::LDRSBReg {
+                    rm: rm,
+                    rn: rn,
+                    rt: rt,
+                })
+            }
+            0b100 => {
+                // LDR reg
+                let rm: Register = (((input >> 6) & 0x7) as u8).try_into().unwrap();
+                let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
+                let rt: Register = ((input & 0x7) as u8).try_into().unwrap();
+                Ok(Operation::LDRReg {
+                    rm: rm,
+                    rn: rn,
+                    rt: rt,
+                })
+            }
+            0b101 => {
+                // LDRH reg
+                let rm: Register = (((input >> 6) & 0x7) as u8).try_into().unwrap();
+                let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
+                let rt: Register = ((input & 0x7) as u8).try_into().unwrap();
+                Ok(Operation::LDRHReg {
+                    rm: rm,
+                    rn: rn,
+                    rt: rt,
+                })
+            }
+            0b110 => {
+                // LDRB reg
+                let rm: Register = (((input >> 6) & 0x7) as u8).try_into().unwrap();
+                let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
+                let rt: Register = ((input & 0x7) as u8).try_into().unwrap();
+                Ok(Operation::LDRBReg {
+                    rm: rm,
+                    rn: rn,
+                    rt: rt,
+                })
+            }
+            0b111 => {
+                // LDRSH reg
+                let rm: Register = (((input >> 6) & 0x7) as u8).try_into().unwrap();
+                let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
+                let rt: Register = ((input & 0x7) as u8).try_into().unwrap();
+                Ok(Operation::LDRSH {
+                    rm: rm,
+                    rn: rn,
+                    rt: rt,
+                })
+            }
+            _ => Err(()),
+        },
+        (0b0110, op_b) => match op_b {
+            0b000..=0b011 => {
+                // STR
+                let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
+                let rt: Register = ((input & 0x7) as u8).try_into().unwrap();
+                let imm = ((input & 0x7c0) >> 4) as u32;
+                Ok(Operation::STRImmT1 {
+                    imm: imm,
+                    rn: rn,
+                    rt: rt,
+                })
+            }
+            0b100..=0b111 => {
+                // LDR
+                let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
+                let rt: Register = ((input & 0x7) as u8).try_into().unwrap();
+                let imm = ((input & 0x7c0) >> 4) as u32;
+                Ok(Operation::LDRImmT1 {
+                    imm: imm,
+                    rn: rn,
+                    rt: rt,
+                })
+            }
+            _ => Err(()),
+        },
+        (0b0111, op_b) => match op_b {
+            0b000..=0b011 => {
+                // STRB
+                let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
+                let rt: Register = ((input & 0x7) as u8).try_into().unwrap();
+                let imm = ((input & 0x7c0) >> 6) as u32;
+                Ok(Operation::STRBImm {
+                    imm: imm,
+                    rn: rn,
+                    rt: rt,
+                })
+            }
+            0b100..=0b111 => {
+                // LDRB
+                let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
+                let rt: Register = ((input & 0x7) as u8).try_into().unwrap();
+                let imm = ((input & 0x7c0) >> 6) as u32;
+                Ok(Operation::LDRBImm {
+                    imm: imm,
+                    rn: rn,
+                    rt: rt,
+                })
+            }
+            _ => Err(()),
+        },
+        (0b1000, op_b) => match op_b {
+            0b000..=0b011 => {
+                // STRH
+                let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
+                let rt: Register = ((input & 0x7) as u8).try_into().unwrap();
+                let imm = ((input & 0x7c0) >> 5) as u32;
+                Ok(Operation::STRHImm {
+                    imm: imm,
+                    rn: rn,
+                    rt: rt,
+                })
+            }
+            0b100..=0b111 => {
+                // LDRH
+                let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
+                let rt: Register = ((input & 0x7) as u8).try_into().unwrap();
+                let imm = ((input & 0x7c0) >> 5) as u32;
+                Ok(Operation::LDRHImm {
+                    imm: imm,
+                    rn: rn,
+                    rt: rt,
+                })
+            }
+            _ => Err(()),
+        },
+        (0b1001, op_b) => match op_b {
+            0b000..=0b011 => {
+                // STR T2
+                let rt: Register = (((input >> 8) & 0x7) as u8).try_into().unwrap();
+                let imm = ((input & 0xff) << 2) as u32;
+                Ok(Operation::STRImmT2 { rt: rt, imm: imm })
+            }
+            0b100..=0b111 => {
+                // LDR T2
+                let rt: Register = (((input >> 8) & 0x7) as u8).try_into().unwrap();
+                let imm = ((input & 0xff) << 2) as u32;
+                Ok(Operation::LDRImmT2 { rt: rt, imm: imm })
+            }
+            _ => Err(()),
+        },
+        (_, _) => Err(()),
+    }
+}
+
+fn parse_special_data_branch_exchange_instruction(input: u16) -> Result<Operation, ()> {
+    let opcode = (input >> 6) & 0xf;
+    match opcode {
+        0b0000..=0b0011 => {
+            // 01000100xx
+            let rm: Register = (((input >> 3) & 0xf) as u8).try_into().unwrap();
+            let rdn: Register = (((input & 0x7) | ((input >> 4) & 0b1000)) as u8)
+                .try_into()
+                .unwrap();
+            if rdn == Register::SP {
+                Ok(Operation::ADDRegSPT2 { rm: rm })
+            } else if rm == Register::SP {
+                Ok(Operation::ADDRegSPT1 { rdm: rdn })
+            } else {
+                // ADD reg T2
+                Ok(Operation::ADDRegT2 { rm: rm, rdn: rdn })
+            }
+        }
+        0b0100 => Err(()), // Unpredictable
+        0b0101 | 0b0110..=0b0111 => {
+            let rm: Register = (((input >> 3) & 0xf) as u8).try_into().unwrap();
+            let rn: Register = (((input & 0x7) | ((input >> 4) & 0b1000)) as u8)
+                .try_into()
+                .unwrap();
+            Ok(Operation::CMPRegT2 { rm: rm, rn: rn })
+        }
+        0b1000..=0b1011 => {
+            let rm: Register = (((input >> 3) & 0xf) as u8).try_into().unwrap();
+            let rd: Register = (((input & 0x7) | ((input >> 4) & 0b1000)) as u8)
+                .try_into()
+                .unwrap();
+            Ok(Operation::MOVRegT1 { rm: rm, rd: rd })
+        }
+        0b1100..=0b1101 => {
+            let rm: Register = (((input >> 3) & 0xf) as u8).try_into().unwrap();
+            Ok(Operation::BX { rm: rm })
+        }
+        0b1110..=0b1111 => {
+            let rm: Register = (((input >> 3) & 0xf) as u8).try_into().unwrap();
+            Ok(Operation::BLXReg { rm: rm })
+        }
+        _ => Err(()),
+    }
+}
+
+fn parse_data_processing_instruction(input: u16) -> Result<Operation, ()> {
+    let opcode = (input >> 6) & 0xf;
+    match opcode {
+        0b0000 => {
+            let rm: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
+            let rdn: Register = ((input & 0x7) as u8).try_into().unwrap();
+            Ok(Operation::ANDReg { rm: rm, rdn: rdn })
+        }
+        0b0001 => {
+            let rm: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
+            let rdn: Register = ((input & 0x7) as u8).try_into().unwrap();
+            Ok(Operation::EORReg { rm: rm, rdn: rdn })
+        }
+        0b0010 => {
+            let rm: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
+            let rdn: Register = ((input & 0x7) as u8).try_into().unwrap();
+            Ok(Operation::LSLReg { rm: rm, rdn: rdn })
+        }
+        0b0011 => {
+            let rm: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
+            let rdn: Register = ((input & 0x7) as u8).try_into().unwrap();
+            Ok(Operation::LSRReg { rm: rm, rdn: rdn })
+        }
+        0b0100 => {
+            let rm: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
+            let rdn: Register = ((input & 0x7) as u8).try_into().unwrap();
+            Ok(Operation::ASRReg { rm: rm, rdn: rdn })
+        }
+        0b0101 => {
+            let rm: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
+            let rdn: Register = ((input & 0x7) as u8).try_into().unwrap();
+            Ok(Operation::ADCReg { rm: rm, rdn: rdn })
+        }
+        0b0110 => {
+            let rm: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
+            let rdn: Register = ((input & 0x7) as u8).try_into().unwrap();
+            Ok(Operation::SBCReg { rm: rm, rdn: rdn })
+        }
+        0b0111 => {
+            let rm: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
+            let rdn: Register = ((input & 0x7) as u8).try_into().unwrap();
+            Ok(Operation::RORReg { rm: rm, rdn: rdn })
+        }
+        0b1000 => {
+            let rm: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
+            let rn: Register = ((input & 0x7) as u8).try_into().unwrap();
+            Ok(Operation::TSTReg { rm: rm, rn: rn })
+        }
+        0b1001 => {
+            let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
+            let rd: Register = ((input & 0x7) as u8).try_into().unwrap();
+            Ok(Operation::RSBImm { rn: rn, rd: rd })
+        }
+        0b1010 => {
+            let rm: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
+            let rn: Register = ((input & 0x7) as u8).try_into().unwrap();
+            Ok(Operation::CMPRegT1 { rm: rm, rn: rn })
+        }
+        0b1011 => {
+            let rm: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
+            let rn: Register = ((input & 0x7) as u8).try_into().unwrap();
+            Ok(Operation::CMNReg { rm: rm, rn: rn })
+        }
+        0b1100 => {
+            let rm: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
+            let rdn: Register = ((input & 0x7) as u8).try_into().unwrap();
+            Ok(Operation::ORRReg { rm: rm, rdn: rdn })
+        }
+        0b1101 => {
+            let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
+            let rdm: Register = ((input & 0x7) as u8).try_into().unwrap();
+            Ok(Operation::MUL { rn: rn, rdm: rdm })
+        }
+        0b1110 => {
+            let rm: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
+            let rdn: Register = ((input & 0x7) as u8).try_into().unwrap();
+            Ok(Operation::BICReg { rm: rm, rdn: rdn })
+        }
+        0b1111 => {
+            let rm: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
+            let rd: Register = ((input & 0x7) as u8).try_into().unwrap();
+            Ok(Operation::MVNReg { rm: rm, rd: rd })
         }
         _ => Err(()),
     }
@@ -151,7 +527,7 @@ fn parse_arith_instructions(input: u16) -> Result<Operation, ()> {
         }
         0b01110 => {
             // ADD 3bit imm
-            let imm: Register = (((input >> 6) & 0x7) as u8).try_into().unwrap();
+            let imm = ((input >> 6) & 0x7);
             let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
             let rd: Register = ((input & 0x7) as u8).try_into().unwrap();
             Ok(Operation::ADDImmT1 {
@@ -217,13 +593,13 @@ fn parse_misc_16_bit(input: u16) -> Result<Operation, ()> {
         0b0000000..=0b0000011 => {
             // ADD SP plus immediate
             // A6-111
-            let imm = input & 0x7f;
+            let imm = (input & 0x7f) << 2;
             Ok(Operation::ADDImmSPT2 { imm: imm as u32 })
         }
         0b0000100..=0b0000111 => {
             // SUB SP minus immediate
             // A6-188
-            let imm = input & 0x7f;
+            let imm = (input & 0x7f) << 2;
             Ok(Operation::SUBImmSP { imm: imm as u32 })
         }
         0b0010000..=0b0010001 => {
@@ -333,5 +709,44 @@ fn parse_hint_instruction(input: u16) -> Result<Operation, ()> {
         0b0011 => Ok(Operation::WFE),
         0b0100 => Ok(Operation::SEV),
         _ => Err(()),
+    }
+}
+
+trait SignExtend {
+    fn sign_extend(&self, valid_bits: usize) -> u32;
+}
+
+impl SignExtend for u16 {
+    fn sign_extend(&self, valid_bits: usize) -> u32 {
+        let shift = 16 - valid_bits;
+        ((((self << shift) as i16) >> shift) as i32) as u32
+    }
+}
+
+impl SignExtend for u32 {
+    fn sign_extend(&self, valid_bits: usize) -> u32 {
+        let shift = 32 - valid_bits;
+        (((self << shift) as i32) >> shift) as u32
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn sign_extend_u16() {
+        assert_eq!(0xffffffff, 0x1u16.sign_extend(1));
+        assert_eq!(0x1, 0x1u16.sign_extend(2));
+        assert_eq!(0xfffffff9, 0x9u16.sign_extend(4));
+        assert_eq!(0x00000009, 0x9u16.sign_extend(5));
+    }
+
+    #[test]
+    fn sign_extend_u32() {
+        assert_eq!(0xffffffff, 0x1u32.sign_extend(1));
+        assert_eq!(0x1, 0x1u32.sign_extend(2));
+        assert_eq!(0xfffffff9, 0x9u32.sign_extend(4));
+        assert_eq!(0x00000009, 0x9u32.sign_extend(5));
     }
 }

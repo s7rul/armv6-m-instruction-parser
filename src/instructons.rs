@@ -146,11 +146,11 @@ pub enum Operation {
     },
     LDRImmT2 {
         rt: Register,
-        imm: Register,
+        imm: u32,
     },
     LDRLiteral {
         rt: Register,
-        imm: Register,
+        imm: u32,
     },
     LDRReg {
         rm: Register,
@@ -203,7 +203,7 @@ pub enum Operation {
     },
     LSRReg {
         rm: Register,
-        rdm: Register,
+        rdn: Register,
     },
     MOVImm {
         rd: Register,
