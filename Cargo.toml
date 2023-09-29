@@ -1,5 +1,5 @@
 [package]
-name = "armv6-m-instructions-parser"
+name = "armv6-m-instruction-parser"
 version = "0.1.0"
 edition = "2021"
 

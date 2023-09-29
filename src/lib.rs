@@ -1,6 +1,18 @@
 //! Library to parse ARMv6-M thumb instructions.
 //!
 //! Provides a enum with all instructions, register types and a function to parse binary representation into the enum with proper arguments.
+//!
+//! # Example
+//! ```
+//! # use armv6_m_instruction_parser::parse;
+//! # fn main() {
+//! #   let program_memory = [0xb0, 0xb5, 0xaf, 0x02];
+//!     match parse(&program_memory[0..4]) {
+//!         Ok(instruction) => println!("Instruction: {:?}", instruction),
+//!         Err(_) => println!("Not a valid instruction.")
+//!     }
+//! # }
+//! ```
 
 pub mod conditions;
 pub mod instructons;
