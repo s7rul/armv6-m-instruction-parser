@@ -1,14 +1,18 @@
+//! Provides a instruction type and a enum with all operations and there arguments.
+
 use crate::{
     conditions::Condition,
     registers::{Register, SpecialRegister},
 };
 
+/// Struct describing an instruction.
 #[derive(Debug)]
 pub struct Instruction {
     pub width: InstructionWidth,
     pub operation: Operation,
 }
 
+/// Enum describing the with of the corresponding binary representation of the instruction.
 #[derive(Debug)]
 pub enum InstructionWidth {
     Bit32,
@@ -16,15 +20,18 @@ pub enum InstructionWidth {
 }
 
 impl Instruction {
+    /// To check if instruction width is 16 bits.
     pub fn is_16bit(&self) -> bool {
         matches!(self.width, InstructionWidth::Bit16)
     }
 
+    /// To check if instruction width is 32 bits.
     pub fn is_32bit(&self) -> bool {
         matches!(self.width, InstructionWidth::Bit32)
     }
 }
 
+/// Describes operation i.e. what type of instruction it is.
 #[derive(Debug)]
 pub enum Operation {
     ADCReg {
@@ -122,7 +129,7 @@ pub enum Operation {
         im: bool,
     },
     CPY,
-    CMB {
+    DMB {
         option: u8,
     },
     DSB {

@@ -1,3 +1,4 @@
+/// Normal register type.
 #[derive(Debug, PartialEq)]
 #[repr(u8)]
 pub enum Register {
@@ -45,6 +46,7 @@ impl TryFrom<u8> for Register {
     }
 }
 
+/// Special register type.
 #[derive(Debug)]
 #[repr(u8)]
 pub enum SpecialRegister {
@@ -62,7 +64,7 @@ pub enum SpecialRegister {
 }
 
 impl TryFrom<u8> for SpecialRegister {
-    type Error = &'static str;
+    type Error = ();
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
@@ -77,11 +79,12 @@ impl TryFrom<u8> for SpecialRegister {
             9 => Ok(SpecialRegister::PSP),
             16 => Ok(SpecialRegister::PRIMASK),
             20 => Ok(SpecialRegister::CONTROL),
-            _ => Err("Not a valid special register."),
+            _ => Err(()),
         }
     }
 }
 
+/// Creates a register list from a bit array.
 pub fn register_list_from_bit_array(bit_array: u16) -> Vec<Register> {
     let mut ret = vec![];
     for i in 0..16 {

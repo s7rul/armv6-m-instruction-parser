@@ -1,3 +1,7 @@
+//! Library to parse ARMv6-M thumb instructions.
+//!
+//! Provides a enum with all instructions, register types and a function to parse binary representation into the enum with proper arguments.
+
 pub mod conditions;
 pub mod instructons;
 pub mod registers;
@@ -6,6 +10,8 @@ use conditions::Condition;
 use instructons::*;
 use registers::*;
 
+/// This function parses a input byte slice into one instruction.
+/// Returns Err(()) if instruction is invalid.
 pub fn parse(input: &[u8]) -> Result<Instruction, ()> {
     if input.len() < 2 {
         return Err(());
@@ -60,15 +66,19 @@ fn parse_branch_misc_ctrl(input: u32) -> Result<Operation, ()> {
     match (op2, op1) {
         (0b000 | 0b010, 0b0111000..=0b0111001) => {
             // MSR
-            todo!()
+            let rn = (((input >> 16) & 0xf) as u8).try_into().unwrap();
+            let sysm = ((input & 0xff) as u8).try_into()?; // can fail
+            Ok(Operation::MSRReg { rn: rn, sysm: sysm })
         }
         (0b000 | 0b010, 0b0111011) => {
             // misc control
-            todo!()
+            parse_misc_ctrl(input)
         }
         (0b000 | 0b010, 0b0111110..=0b0111111) => {
             // MRS
-            todo!()
+            let rd = (((input >> 8) & 0xf) as u8).try_into().unwrap();
+            let sysm = ((input & 0xff) as u8).try_into()?;
+            Ok(Operation::MRS { rd: rd, sysm: sysm })
         }
         (0b111, 0b1111111) => {
             // Permanently Undefined
@@ -87,6 +97,32 @@ fn parse_branch_misc_ctrl(input: u32) -> Result<Operation, ()> {
                 .sign_extend(25);
 
             Ok(Operation::BL { imm: imm })
+        }
+        _ => Err(()),
+    }
+}
+
+fn parse_misc_ctrl(input: u32) -> Result<Operation, ()> {
+    let op = (input >> 4) & 0xf;
+
+    match op {
+        0b0100 => {
+            let option = input & 0xf;
+            Ok(Operation::DSB {
+                option: option as u8,
+            })
+        }
+        0b0101 => {
+            let option = input & 0xf;
+            Ok(Operation::DMB {
+                option: option as u8,
+            })
+        }
+        0b0110 => {
+            let option = input & 0xf;
+            Ok(Operation::ISB {
+                option: option as u8,
+            })
         }
         _ => Err(()),
     }
