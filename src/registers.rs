@@ -1,5 +1,5 @@
 /// Normal register type.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 #[repr(u8)]
 pub enum Register {
     R0 = 0,
@@ -47,7 +47,7 @@ impl TryFrom<u8> for Register {
 }
 
 /// Special register type.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 #[repr(u8)]
 pub enum SpecialRegister {
     APSR = 0,

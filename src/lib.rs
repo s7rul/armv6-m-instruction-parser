@@ -80,7 +80,7 @@ fn parse_branch_misc_ctrl(input: u32) -> Result<Operation, ()> {
             // MSR
             let rn = (((input >> 16) & 0xf) as u8).try_into().unwrap();
             let sysm = ((input & 0xff) as u8).try_into()?; // can fail
-            Ok(Operation::MSRReg { rn: rn, sysm: sysm })
+            Ok(Operation::MSRReg { n: rn, sysm: sysm })
         }
         (0b000 | 0b010, 0b0111011) => {
             // misc control
@@ -90,7 +90,7 @@ fn parse_branch_misc_ctrl(input: u32) -> Result<Operation, ()> {
             // MRS
             let rd = (((input >> 8) & 0xf) as u8).try_into().unwrap();
             let sysm = ((input & 0xff) as u8).try_into()?;
-            Ok(Operation::MRS { rd: rd, sysm: sysm })
+            Ok(Operation::MRS { d: rd, sysm: sysm })
         }
         (0b111, 0b1111111) => {
             // Permanently Undefined
@@ -157,7 +157,7 @@ fn parse_16bit_operation(input: u16) -> Result<Operation, ()> {
             // LDR literal
             let rt: Register = (((input >> 8) & 0x7) as u8).try_into().unwrap();
             let imm = ((input & 0xff) << 2) as u32;
-            Ok(Operation::LDRLiteral { rt: rt, imm: imm })
+            Ok(Operation::LDRLiteral { t: rt, imm: imm })
         }
         0b010100..=0b100111 => {
             // A5-88
@@ -167,13 +167,13 @@ fn parse_16bit_operation(input: u16) -> Result<Operation, ()> {
             // A6-115
             let rd: Register = (((input >> 8) & 0x7) as u8).try_into().unwrap();
             let imm = ((input & 0xff) << 2) as u32;
-            Ok(Operation::ADR { rd: rd, imm: imm })
+            Ok(Operation::ADR { d: rd, imm: imm })
         }
         0b101010..=0b101011 => {
             // A6-111
             let rd: Register = (((input >> 8) & 0x7) as u8).try_into().unwrap();
             let imm = ((input & 0xff) << 2) as u32;
-            Ok(Operation::ADDImmSPT1 { rd: rd, imm: imm })
+            Ok(Operation::ADDImmSP { d: rd, imm: imm })
         }
         0b101100..=0b101111 => {
             parse_misc_16_bit(input) // A5-86
@@ -184,7 +184,7 @@ fn parse_16bit_operation(input: u16) -> Result<Operation, ()> {
             let reg_list_bits = input & 0xff;
             let reg_list = register_list_from_bit_array(reg_list_bits);
             Ok(Operation::STM {
-                rn: rn,
+                n: rn,
                 reg_list: reg_list,
             })
         }
@@ -194,7 +194,7 @@ fn parse_16bit_operation(input: u16) -> Result<Operation, ()> {
             let reg_list_bits = input & 0xff;
             let reg_list = register_list_from_bit_array(reg_list_bits);
             Ok(Operation::LDM {
-                rn: rn,
+                n: rn,
                 reg_list: reg_list,
             })
         }
@@ -206,7 +206,10 @@ fn parse_16bit_operation(input: u16) -> Result<Operation, ()> {
             // A6-119
             // Unconditional branch
             let imm = ((input & 0x7ff) << 1).sign_extend(12);
-            Ok(Operation::BT2 { imm: imm })
+            Ok(Operation::B {
+                cond: Condition::None,
+                imm: imm,
+            })
         }
         _ => Err(()),
     }
@@ -226,7 +229,7 @@ fn parse_conditional_branch(input: u16) -> Result<Operation, ()> {
             // B
             let imm = ((input & 0xff) << 1).sign_extend(9);
             let cond: Condition = (((input >> 8) & 0xf) as u8).try_into()?;
-            Ok(Operation::BT1 {
+            Ok(Operation::B {
                 cond: cond,
                 imm: imm,
             })
@@ -246,9 +249,9 @@ fn parse_load_store_instruction(input: u16) -> Result<Operation, ()> {
                 let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
                 let rt: Register = ((input & 0x7) as u8).try_into().unwrap();
                 Ok(Operation::STRReg {
-                    rm: rm,
-                    rn: rn,
-                    rt: rt,
+                    m: rm,
+                    n: rn,
+                    t: rt,
                 })
             }
             0b001 => {
@@ -257,9 +260,9 @@ fn parse_load_store_instruction(input: u16) -> Result<Operation, ()> {
                 let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
                 let rt: Register = ((input & 0x7) as u8).try_into().unwrap();
                 Ok(Operation::STRHReg {
-                    rm: rm,
-                    rn: rn,
-                    rt: rt,
+                    m: rm,
+                    n: rn,
+                    t: rt,
                 })
             }
             0b010 => {
@@ -268,9 +271,9 @@ fn parse_load_store_instruction(input: u16) -> Result<Operation, ()> {
                 let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
                 let rt: Register = ((input & 0x7) as u8).try_into().unwrap();
                 Ok(Operation::STRBReg {
-                    rm: rm,
-                    rn: rn,
-                    rt: rt,
+                    m: rm,
+                    n: rn,
+                    t: rt,
                 })
             }
             0b011 => {
@@ -279,9 +282,9 @@ fn parse_load_store_instruction(input: u16) -> Result<Operation, ()> {
                 let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
                 let rt: Register = ((input & 0x7) as u8).try_into().unwrap();
                 Ok(Operation::LDRSBReg {
-                    rm: rm,
-                    rn: rn,
-                    rt: rt,
+                    m: rm,
+                    n: rn,
+                    t: rt,
                 })
             }
             0b100 => {
@@ -290,9 +293,9 @@ fn parse_load_store_instruction(input: u16) -> Result<Operation, ()> {
                 let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
                 let rt: Register = ((input & 0x7) as u8).try_into().unwrap();
                 Ok(Operation::LDRReg {
-                    rm: rm,
-                    rn: rn,
-                    rt: rt,
+                    m: rm,
+                    n: rn,
+                    t: rt,
                 })
             }
             0b101 => {
@@ -301,9 +304,9 @@ fn parse_load_store_instruction(input: u16) -> Result<Operation, ()> {
                 let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
                 let rt: Register = ((input & 0x7) as u8).try_into().unwrap();
                 Ok(Operation::LDRHReg {
-                    rm: rm,
-                    rn: rn,
-                    rt: rt,
+                    m: rm,
+                    n: rn,
+                    t: rt,
                 })
             }
             0b110 => {
@@ -312,9 +315,9 @@ fn parse_load_store_instruction(input: u16) -> Result<Operation, ()> {
                 let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
                 let rt: Register = ((input & 0x7) as u8).try_into().unwrap();
                 Ok(Operation::LDRBReg {
-                    rm: rm,
-                    rn: rn,
-                    rt: rt,
+                    m: rm,
+                    n: rn,
+                    t: rt,
                 })
             }
             0b111 => {
@@ -323,9 +326,9 @@ fn parse_load_store_instruction(input: u16) -> Result<Operation, ()> {
                 let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
                 let rt: Register = ((input & 0x7) as u8).try_into().unwrap();
                 Ok(Operation::LDRSH {
-                    rm: rm,
-                    rn: rn,
-                    rt: rt,
+                    m: rm,
+                    n: rn,
+                    t: rt,
                 })
             }
             _ => Err(()),
@@ -336,10 +339,10 @@ fn parse_load_store_instruction(input: u16) -> Result<Operation, ()> {
                 let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
                 let rt: Register = ((input & 0x7) as u8).try_into().unwrap();
                 let imm = ((input & 0x7c0) >> 4) as u32;
-                Ok(Operation::STRImmT1 {
+                Ok(Operation::STRImm {
                     imm: imm,
-                    rn: rn,
-                    rt: rt,
+                    n: rn,
+                    t: rt,
                 })
             }
             0b100..=0b111 => {
@@ -347,10 +350,10 @@ fn parse_load_store_instruction(input: u16) -> Result<Operation, ()> {
                 let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
                 let rt: Register = ((input & 0x7) as u8).try_into().unwrap();
                 let imm = ((input & 0x7c0) >> 4) as u32;
-                Ok(Operation::LDRImmT1 {
+                Ok(Operation::LDRImm {
                     imm: imm,
-                    rn: rn,
-                    rt: rt,
+                    n: rn,
+                    t: rt,
                 })
             }
             _ => Err(()),
@@ -363,8 +366,8 @@ fn parse_load_store_instruction(input: u16) -> Result<Operation, ()> {
                 let imm = ((input & 0x7c0) >> 6) as u32;
                 Ok(Operation::STRBImm {
                     imm: imm,
-                    rn: rn,
-                    rt: rt,
+                    n: rn,
+                    t: rt,
                 })
             }
             0b100..=0b111 => {
@@ -374,8 +377,8 @@ fn parse_load_store_instruction(input: u16) -> Result<Operation, ()> {
                 let imm = ((input & 0x7c0) >> 6) as u32;
                 Ok(Operation::LDRBImm {
                     imm: imm,
-                    rn: rn,
-                    rt: rt,
+                    n: rn,
+                    t: rt,
                 })
             }
             _ => Err(()),
@@ -388,8 +391,8 @@ fn parse_load_store_instruction(input: u16) -> Result<Operation, ()> {
                 let imm = ((input & 0x7c0) >> 5) as u32;
                 Ok(Operation::STRHImm {
                     imm: imm,
-                    rn: rn,
-                    rt: rt,
+                    n: rn,
+                    t: rt,
                 })
             }
             0b100..=0b111 => {
@@ -399,8 +402,8 @@ fn parse_load_store_instruction(input: u16) -> Result<Operation, ()> {
                 let imm = ((input & 0x7c0) >> 5) as u32;
                 Ok(Operation::LDRHImm {
                     imm: imm,
-                    rn: rn,
-                    rt: rt,
+                    n: rn,
+                    t: rt,
                 })
             }
             _ => Err(()),
@@ -410,13 +413,21 @@ fn parse_load_store_instruction(input: u16) -> Result<Operation, ()> {
                 // STR T2
                 let rt: Register = (((input >> 8) & 0x7) as u8).try_into().unwrap();
                 let imm = ((input & 0xff) << 2) as u32;
-                Ok(Operation::STRImmT2 { rt: rt, imm: imm })
+                Ok(Operation::STRImm {
+                    n: Register::SP,
+                    t: rt,
+                    imm: imm,
+                })
             }
             0b100..=0b111 => {
                 // LDR T2
                 let rt: Register = (((input >> 8) & 0x7) as u8).try_into().unwrap();
                 let imm = ((input & 0xff) << 2) as u32;
-                Ok(Operation::LDRImmT2 { rt: rt, imm: imm })
+                Ok(Operation::LDRImm {
+                    n: Register::SP,
+                    t: rt,
+                    imm: imm,
+                })
             }
             _ => Err(()),
         },
@@ -433,13 +444,24 @@ fn parse_special_data_branch_exchange_instruction(input: u16) -> Result<Operatio
             let rdn: Register = (((input & 0x7) | ((input >> 4) & 0b1000)) as u8)
                 .try_into()
                 .unwrap();
-            if rdn == Register::SP {
-                Ok(Operation::ADDRegSPT2 { rm: rm })
-            } else if rm == Register::SP {
-                Ok(Operation::ADDRegSPT1 { rdm: rdn })
+            if rdn == Register::SP || rm == Register::SP {
+                if rm == Register::SP {
+                    // T1
+                    Ok(Operation::ADDRegSP { d: rdn, m: rdn })
+                } else {
+                    // T2
+                    Ok(Operation::ADDRegSP {
+                        d: Register::SP,
+                        m: rm,
+                    })
+                }
             } else {
                 // ADD reg T2
-                Ok(Operation::ADDRegT2 { rm: rm, rdn: rdn })
+                Ok(Operation::ADDReg {
+                    m: rm,
+                    n: rdn,
+                    d: rdn,
+                })
             }
         }
         0b0100 => Err(()), // Unpredictable
@@ -448,22 +470,26 @@ fn parse_special_data_branch_exchange_instruction(input: u16) -> Result<Operatio
             let rn: Register = (((input & 0x7) | ((input >> 4) & 0b1000)) as u8)
                 .try_into()
                 .unwrap();
-            Ok(Operation::CMPRegT2 { rm: rm, rn: rn })
+            Ok(Operation::CMPReg { m: rm, n: rn })
         }
         0b1000..=0b1011 => {
             let rm: Register = (((input >> 3) & 0xf) as u8).try_into().unwrap();
             let rd: Register = (((input & 0x7) | ((input >> 4) & 0b1000)) as u8)
                 .try_into()
                 .unwrap();
-            Ok(Operation::MOVRegT1 { rm: rm, rd: rd })
+            Ok(Operation::MOVReg {
+                set_flags: false,
+                m: rm,
+                d: rd,
+            })
         }
         0b1100..=0b1101 => {
             let rm: Register = (((input >> 3) & 0xf) as u8).try_into().unwrap();
-            Ok(Operation::BX { rm: rm })
+            Ok(Operation::BX { m: rm })
         }
         0b1110..=0b1111 => {
             let rm: Register = (((input >> 3) & 0xf) as u8).try_into().unwrap();
-            Ok(Operation::BLXReg { rm: rm })
+            Ok(Operation::BLXReg { m: rm })
         }
         _ => Err(()),
     }
@@ -475,82 +501,86 @@ fn parse_data_processing_instruction(input: u16) -> Result<Operation, ()> {
         0b0000 => {
             let rm: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
             let rdn: Register = ((input & 0x7) as u8).try_into().unwrap();
-            Ok(Operation::ANDReg { rm: rm, rdn: rdn })
+            Ok(Operation::ANDReg { m: rm, dn: rdn })
         }
         0b0001 => {
             let rm: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
             let rdn: Register = ((input & 0x7) as u8).try_into().unwrap();
-            Ok(Operation::EORReg { rm: rm, rdn: rdn })
+            Ok(Operation::EORReg { m: rm, dn: rdn })
         }
         0b0010 => {
             let rm: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
             let rdn: Register = ((input & 0x7) as u8).try_into().unwrap();
-            Ok(Operation::LSLReg { rm: rm, rdn: rdn })
+            Ok(Operation::LSLReg { m: rm, dn: rdn })
         }
         0b0011 => {
             let rm: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
             let rdn: Register = ((input & 0x7) as u8).try_into().unwrap();
-            Ok(Operation::LSRReg { rm: rm, rdn: rdn })
+            Ok(Operation::LSRReg { m: rm, dn: rdn })
         }
         0b0100 => {
             let rm: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
             let rdn: Register = ((input & 0x7) as u8).try_into().unwrap();
-            Ok(Operation::ASRReg { rm: rm, rdn: rdn })
+            Ok(Operation::ASRReg { m: rm, dn: rdn })
         }
         0b0101 => {
             let rm: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
             let rdn: Register = ((input & 0x7) as u8).try_into().unwrap();
-            Ok(Operation::ADCReg { rm: rm, rdn: rdn })
+            Ok(Operation::ADCReg {
+                m: rm,
+                n: rdn,
+                d: rdn,
+            })
         }
         0b0110 => {
             let rm: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
             let rdn: Register = ((input & 0x7) as u8).try_into().unwrap();
-            Ok(Operation::SBCReg { rm: rm, rdn: rdn })
+            Ok(Operation::SBCReg { m: rm, dn: rdn })
         }
         0b0111 => {
             let rm: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
             let rdn: Register = ((input & 0x7) as u8).try_into().unwrap();
-            Ok(Operation::RORReg { rm: rm, rdn: rdn })
+            Ok(Operation::RORReg { m: rm, dn: rdn })
         }
         0b1000 => {
             let rm: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
             let rn: Register = ((input & 0x7) as u8).try_into().unwrap();
-            Ok(Operation::TSTReg { rm: rm, rn: rn })
+            Ok(Operation::TSTReg { m: rm, n: rn })
         }
         0b1001 => {
             let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
             let rd: Register = ((input & 0x7) as u8).try_into().unwrap();
-            Ok(Operation::RSBImm { rn: rn, rd: rd })
+            Ok(Operation::RSBImm { n: rn, d: rd })
         }
         0b1010 => {
             let rm: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
             let rn: Register = ((input & 0x7) as u8).try_into().unwrap();
-            Ok(Operation::CMPRegT1 { rm: rm, rn: rn })
+            Ok(Operation::CMPReg { m: rm, n: rn })
         }
         0b1011 => {
             let rm: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
             let rn: Register = ((input & 0x7) as u8).try_into().unwrap();
-            Ok(Operation::CMNReg { rm: rm, rn: rn })
+            Ok(Operation::CMNReg { m: rm, n: rn })
         }
         0b1100 => {
             let rm: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
             let rdn: Register = ((input & 0x7) as u8).try_into().unwrap();
-            Ok(Operation::ORRReg { rm: rm, rdn: rdn })
+            Ok(Operation::ORRReg { m: rm, dn: rdn })
         }
         0b1101 => {
             let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
             let rdm: Register = ((input & 0x7) as u8).try_into().unwrap();
-            Ok(Operation::MUL { rn: rn, rdm: rdm })
+            Ok(Operation::MUL { n: rn, dm: rdm })
         }
         0b1110 => {
             let rm: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
             let rdn: Register = ((input & 0x7) as u8).try_into().unwrap();
-            Ok(Operation::BICReg { rm: rm, rdn: rdn })
+            Ok(Operation::BICReg { m: rm, dn: rdn })
         }
         0b1111 => {
             let rm: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
             let rd: Register = ((input & 0x7) as u8).try_into().unwrap();
-            Ok(Operation::MVNReg { rm: rm, rd: rd })
+            Ok(Operation::MVNReg { m: rm, d: rd })
         }
         _ => Err(()),
     }
@@ -568,11 +598,15 @@ fn parse_arith_instructions(input: u16) -> Result<Operation, ()> {
             if imm > 0 {
                 Ok(Operation::LSLImm {
                     imm: imm as u32,
-                    rm: rm,
-                    rd: rd,
+                    m: rm,
+                    d: rd,
                 })
             } else {
-                Ok(Operation::MOVRegT2 { rm: rm, rd: rd })
+                Ok(Operation::MOVReg {
+                    set_flags: true,
+                    m: rm,
+                    d: rd,
+                })
             }
         }
         0b00100..=0b00111 => {
@@ -582,8 +616,8 @@ fn parse_arith_instructions(input: u16) -> Result<Operation, ()> {
             let rd: Register = ((input & 0x7) as u8).try_into().unwrap();
             Ok(Operation::LSRImm {
                 imm: imm as u32,
-                rm: rm,
-                rd: rd,
+                m: rm,
+                d: rd,
             })
         }
         0b01000..=0b01011 => {
@@ -593,8 +627,8 @@ fn parse_arith_instructions(input: u16) -> Result<Operation, ()> {
             let rd: Register = ((input & 0x7) as u8).try_into().unwrap();
             Ok(Operation::ASRImm {
                 imm: imm as u32,
-                rm: rm,
-                rd: rd,
+                m: rm,
+                d: rd,
             })
         }
         0b01100 => {
@@ -602,10 +636,10 @@ fn parse_arith_instructions(input: u16) -> Result<Operation, ()> {
             let rm: Register = (((input >> 6) & 0x7) as u8).try_into().unwrap();
             let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
             let rd: Register = ((input & 0x7) as u8).try_into().unwrap();
-            Ok(Operation::ADDRegT1 {
-                rm: rm,
-                rn: rn,
-                rd: rd,
+            Ok(Operation::ADDReg {
+                m: rm,
+                n: rn,
+                d: rd,
             })
         }
         0b01101 => {
@@ -613,10 +647,10 @@ fn parse_arith_instructions(input: u16) -> Result<Operation, ()> {
             let rm: Register = (((input >> 6) & 0x7) as u8).try_into().unwrap();
             let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
             let rd: Register = ((input & 0x7) as u8).try_into().unwrap();
-            Ok(Operation::ADDRegT1 {
-                rm: rm,
-                rn: rn,
-                rd: rd,
+            Ok(Operation::SUBReg {
+                m: rm,
+                n: rn,
+                d: rd,
             })
         }
         0b01110 => {
@@ -624,10 +658,10 @@ fn parse_arith_instructions(input: u16) -> Result<Operation, ()> {
             let imm = (input >> 6) & 0x7;
             let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
             let rd: Register = ((input & 0x7) as u8).try_into().unwrap();
-            Ok(Operation::ADDImmT1 {
+            Ok(Operation::ADDImm {
                 imm: imm as u32,
-                rn: rn,
-                rd: rd,
+                n: rn,
+                d: rd,
             })
         }
         0b01111 => {
@@ -635,10 +669,10 @@ fn parse_arith_instructions(input: u16) -> Result<Operation, ()> {
             let imm: Register = (((input >> 6) & 0x7) as u8).try_into().unwrap();
             let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
             let rd: Register = ((input & 0x7) as u8).try_into().unwrap();
-            Ok(Operation::SUBImmT1 {
+            Ok(Operation::SUBImm {
                 imm: imm as u32,
-                rn: rn,
-                rd: rd,
+                n: rn,
+                d: rd,
             })
         }
         0b10000..=0b10011 => {
@@ -646,7 +680,7 @@ fn parse_arith_instructions(input: u16) -> Result<Operation, ()> {
             let imm = input & 0xff;
             let rd: Register = (((input >> 8) & 0x7) as u8).try_into().unwrap();
             Ok(Operation::MOVImm {
-                rd: rd,
+                d: rd,
                 imm: imm as u32,
             })
         }
@@ -655,7 +689,7 @@ fn parse_arith_instructions(input: u16) -> Result<Operation, ()> {
             let imm = input & 0xff;
             let rn: Register = (((input >> 8) & 0x7) as u8).try_into().unwrap();
             Ok(Operation::CMPImm {
-                rn: rn,
+                n: rn,
                 imm: imm as u32,
             })
         }
@@ -663,17 +697,19 @@ fn parse_arith_instructions(input: u16) -> Result<Operation, ()> {
             // ADD 8bit imm
             let imm = input & 0xff;
             let rdn: Register = (((input >> 8) & 0x7) as u8).try_into().unwrap();
-            Ok(Operation::ADDImmT2 {
+            Ok(Operation::ADDImm {
                 imm: imm as u32,
-                rdn: rdn,
+                n: rdn,
+                d: rdn,
             })
         }
         0b11100..=0b11111 => {
             // SUB 8bit imm
             let imm = input & 0xff;
             let rdn: Register = (((input >> 8) & 0x7) as u8).try_into().unwrap();
-            Ok(Operation::SUBImmT2 {
-                rdn: rdn,
+            Ok(Operation::SUBImm {
+                n: rdn,
+                d: rdn,
                 imm: imm as u32,
             })
         }
@@ -688,7 +724,10 @@ fn parse_misc_16_bit(input: u16) -> Result<Operation, ()> {
             // ADD SP plus immediate
             // A6-111
             let imm = (input & 0x7f) << 2;
-            Ok(Operation::ADDImmSPT2 { imm: imm as u32 })
+            Ok(Operation::ADDImmSP {
+                d: Register::SP,
+                imm: imm as u32,
+            })
         }
         0b0000100..=0b0000111 => {
             // SUB SP minus immediate
@@ -702,7 +741,7 @@ fn parse_misc_16_bit(input: u16) -> Result<Operation, ()> {
             let rm: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
             let rd: Register = ((input & 0x7) as u8).try_into().unwrap();
 
-            Ok(Operation::SXTH { rm: rm, rd: rd })
+            Ok(Operation::SXTH { m: rm, d: rd })
         }
         0b0010010..=0b0010011 => {
             // A6-190
@@ -710,7 +749,7 @@ fn parse_misc_16_bit(input: u16) -> Result<Operation, ()> {
             let rm: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
             let rd: Register = ((input & 0x7) as u8).try_into().unwrap();
 
-            Ok(Operation::SXTB { rm: rm, rd: rd })
+            Ok(Operation::SXTB { m: rm, d: rd })
         }
         0b0010100..=0b0010101 => {
             // A6-196
@@ -718,7 +757,7 @@ fn parse_misc_16_bit(input: u16) -> Result<Operation, ()> {
             let rm: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
             let rd: Register = ((input & 0x7) as u8).try_into().unwrap();
 
-            Ok(Operation::UXTH { rm: rm, rd: rd })
+            Ok(Operation::UXTH { m: rm, d: rd })
         }
         0b0010110..=0b0010111 => {
             // A6-195
@@ -726,7 +765,7 @@ fn parse_misc_16_bit(input: u16) -> Result<Operation, ()> {
             let rm: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
             let rd: Register = ((input & 0x7) as u8).try_into().unwrap();
 
-            Ok(Operation::UXTB { rm: rm, rd: rd })
+            Ok(Operation::UXTB { m: rm, d: rd })
         }
         0b0100000..=0b0101111 => {
             // PUSH
@@ -747,7 +786,7 @@ fn parse_misc_16_bit(input: u16) -> Result<Operation, ()> {
             let rm: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
             let rd: Register = ((input & 0x7) as u8).try_into().unwrap();
 
-            Ok(Operation::REV { rm: rm, rd: rd })
+            Ok(Operation::REV { m: rm, d: rd })
         }
         0b1010010..=0b1010011 => {
             // A6-169
@@ -755,7 +794,7 @@ fn parse_misc_16_bit(input: u16) -> Result<Operation, ()> {
             let rm: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
             let rd: Register = ((input & 0x7) as u8).try_into().unwrap();
 
-            Ok(Operation::REV16 { rm: rm, rd: rd })
+            Ok(Operation::REV16 { m: rm, d: rd })
         }
         0b1010110..=0b1010111 => {
             // A6-170
@@ -763,7 +802,7 @@ fn parse_misc_16_bit(input: u16) -> Result<Operation, ()> {
             let rm: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
             let rd: Register = ((input & 0x7) as u8).try_into().unwrap();
 
-            Ok(Operation::REVSH { rm: rm, rd: rd })
+            Ok(Operation::REVSH { m: rm, d: rd })
         }
         0b1100000..=0b1101111 => {
             // A6-165

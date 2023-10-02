@@ -35,67 +35,52 @@ impl Instruction {
 #[derive(Debug)]
 pub enum Operation {
     ADCReg {
-        rm: Register,
-        rdn: Register,
+        m: Register,
+        n: Register,
+        d: Register,
     },
-    ADDImmT1 {
+    ADDImm {
         imm: u32,
-        rn: Register,
-        rd: Register,
+        n: Register,
+        d: Register,
     },
-    ADDImmT2 {
-        imm: u32,
-        rdn: Register,
+    ADDReg {
+        m: Register,
+        n: Register,
+        d: Register,
     },
-    ADDRegT1 {
-        rm: Register,
-        rn: Register,
-        rd: Register,
-    },
-    ADDRegT2 {
-        rm: Register,
-        rdn: Register,
-    },
-    ADDImmSPT1 {
-        rd: Register,
+    ADDImmSP {
+        d: Register,
         imm: u32,
     },
-    ADDImmSPT2 {
-        imm: u32,
-    },
-    ADDRegSPT1 {
-        rdm: Register,
-    },
-    ADDRegSPT2 {
-        rm: Register,
+    ADDRegSP {
+        d: Register,
+        m: Register,
     },
     ADR {
-        rd: Register,
+        d: Register,
         imm: u32,
     },
     ANDReg {
-        rm: Register,
-        rdn: Register,
+        m: Register,
+        dn: Register,
     },
     ASRImm {
         imm: u32,
-        rm: Register,
-        rd: Register,
+        m: Register,
+        d: Register,
     },
     ASRReg {
-        rm: Register,
-        rdn: Register,
+        m: Register,
+        dn: Register,
     },
-    BT1 {
+    B {
         cond: Condition,
         imm: u32,
     },
-    BT2 {
-        imm: u32,
-    },
     BICReg {
-        rm: Register,
-        rdn: Register,
+        m: Register,
+        dn: Register,
     },
     BKPT {
         imm: u32,
@@ -104,26 +89,22 @@ pub enum Operation {
         imm: u32,
     },
     BLXReg {
-        rm: Register,
+        m: Register,
     },
     BX {
-        rm: Register,
+        m: Register,
     },
     CMNReg {
-        rm: Register,
-        rn: Register,
+        m: Register,
+        n: Register,
     },
     CMPImm {
-        rn: Register,
+        n: Register,
         imm: u32,
     },
-    CMPRegT1 {
-        rm: Register,
-        rn: Register,
-    },
-    CMPRegT2 {
-        rm: Register,
-        rn: Register,
+    CMPReg {
+        m: Register,
+        n: Register,
     },
     CPS {
         im: bool,
@@ -136,114 +117,107 @@ pub enum Operation {
         option: u8,
     },
     EORReg {
-        rm: Register,
-        rdn: Register,
+        m: Register,
+        dn: Register,
     },
     ISB {
         option: u8,
     },
     LDM {
-        rn: Register,
+        n: Register,
         reg_list: Vec<Register>,
     },
-    LDRImmT1 {
+    LDRImm {
         imm: u32,
-        rn: Register,
-        rt: Register,
-    },
-    LDRImmT2 {
-        rt: Register,
-        imm: u32,
+        n: Register,
+        t: Register,
     },
     LDRLiteral {
-        rt: Register,
+        t: Register,
         imm: u32,
     },
     LDRReg {
-        rm: Register,
-        rn: Register,
-        rt: Register,
+        m: Register,
+        n: Register,
+        t: Register,
     },
     LDRBImm {
         imm: u32,
-        rn: Register,
-        rt: Register,
+        n: Register,
+        t: Register,
     },
     LDRBReg {
-        rm: Register,
-        rn: Register,
-        rt: Register,
+        m: Register,
+        n: Register,
+        t: Register,
     },
     LDRHImm {
         imm: u32,
-        rn: Register,
-        rt: Register,
+        n: Register,
+        t: Register,
     },
     LDRHReg {
-        rm: Register,
-        rn: Register,
-        rt: Register,
+        m: Register,
+        n: Register,
+        t: Register,
     },
     LDRSBReg {
-        rm: Register,
-        rn: Register,
-        rt: Register,
+        m: Register,
+        n: Register,
+        t: Register,
     },
     LDRSH {
-        rm: Register,
-        rn: Register,
-        rt: Register,
+        m: Register,
+        n: Register,
+        t: Register,
     },
     LSLImm {
         imm: u32,
-        rm: Register,
-        rd: Register,
+        m: Register,
+        d: Register,
     },
     LSLReg {
-        rm: Register,
-        rdn: Register,
+        m: Register,
+        dn: Register,
     },
     LSRImm {
         imm: u32,
-        rm: Register,
-        rd: Register,
+        m: Register,
+        d: Register,
     },
     LSRReg {
-        rm: Register,
-        rdn: Register,
+        m: Register,
+        dn: Register,
     },
     MOVImm {
-        rd: Register,
+        d: Register,
         imm: u32,
     },
-    MOVRegT1 {
-        rm: Register,
-        rd: Register,
-    },
-    MOVRegT2 {
-        rm: Register,
-        rd: Register,
+    MOVReg {
+        m: Register,
+        d: Register,
+        set_flags: bool,
     },
     MRS {
-        rd: Register,
+        d: Register,
         sysm: SpecialRegister,
     },
     MSRReg {
-        rn: Register,
+        n: Register,
         sysm: SpecialRegister,
     },
     MUL {
-        rn: Register,
-        rdm: Register,
+        n: Register,
+        dm: Register,
     },
     MVNReg {
-        rm: Register,
-        rd: Register,
+        m: Register,
+        d: Register,
     },
     NOP,
     ORRReg {
-        rm: Register,
-        rdn: Register,
+        m: Register,
+        dn: Register,
     },
     POP {
         reg_list: Vec<Register>,
@@ -252,81 +226,73 @@ pub enum Operation {
         reg_list: Vec<Register>,
     },
     REV {
-        rm: Register,
-        rd: Register,
+        m: Register,
+        d: Register,
     },
     REV16 {
-        rm: Register,
-        rd: Register,
+        m: Register,
+        d: Register,
     },
     REVSH {
-        rm: Register,
-        rd: Register,
+        m: Register,
+        d: Register,
     },
     RORReg {
-        rm: Register,
-        rdn: Register,
+        m: Register,
+        dn: Register,
     },
     RSBImm {
-        rn: Register,
-        rd: Register,
+        n: Register,
+        d: Register,
     },
     SBCReg {
-        rm: Register,
-        rdn: Register,
+        m: Register,
+        dn: Register,
     },
     SEV,
     STM {
-        rn: Register,
+        n: Register,
         reg_list: Vec<Register>,
     },
-    STRImmT1 {
+    STRImm {
         imm: u32,
-        rn: Register,
-        rt: Register,
-    },
-    STRImmT2 {
-        rt: Register,
-        imm: u32,
+        n: Register,
+        t: Register,
     },
     STRReg {
-        rm: Register,
-        rn: Register,
-        rt: Register,
+        m: Register,
+        n: Register,
+        t: Register,
     },
     STRBImm {
         imm: u32,
-        rn: Register,
-        rt: Register,
+        n: Register,
+        t: Register,
     },
     STRBReg {
-        rm: Register,
-        rn: Register,
-        rt: Register,
+        m: Register,
+        n: Register,
+        t: Register,
     },
     STRHImm {
         imm: u32,
-        rn: Register,
-        rt: Register,
+        n: Register,
+        t: Register,
     },
     STRHReg {
-        rm: Register,
-        rn: Register,
-        rt: Register,
+        m: Register,
+        n: Register,
+        t: Register,
     },
-    SUBImmT1 {
+    SUBImm {
         imm: u32,
-        rn: Register,
-        rd: Register,
-    },
-    SUBImmT2 {
-        rdn: Register,
-        imm: u32,
+        n: Register,
+        d: Register,
     },
     SUBReg {
-        rm: Register,
-        rn: Register,
-        rd: Register,
+        m: Register,
+        n: Register,
+        d: Register,
     },
     SUBImmSP {
         imm: u32,
@@ -335,16 +301,16 @@ pub enum Operation {
         imm: u32,
     },
     SXTB {
-        rm: Register,
-        rd: Register,
+        m: Register,
+        d: Register,
     },
     SXTH {
-        rm: Register,
-        rd: Register,
+        m: Register,
+        d: Register,
     },
     TSTReg {
-        rm: Register,
-        rn: Register,
+        m: Register,
+        n: Register,
     },
     UDFT1 {
         imm: u32,
@@ -353,12 +319,12 @@ pub enum Operation {
         imm: u32,
     },
     UXTB {
-        rm: Register,
-        rd: Register,
+        m: Register,
+        d: Register,
     },
     UXTH {
-        rm: Register,
-        rd: Register,
+        m: Register,
+        d: Register,
     },
     WFE,
     WFI,
