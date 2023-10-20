@@ -42,14 +42,12 @@ pub fn parse(input: &[u8]) -> Result<Instruction, ()> {
             instruction_bytes2.copy_from_slice(&input[2..4]);
             let instruction_bits2 = u16::from_le_bytes(instruction_bytes2);
             let instruction_bits: u32 = (instruction_bits1 as u32) << 16 | instruction_bits2 as u32;
-            println!("instruction bits: {:#034b}", instruction_bits);
             Ok(Instruction {
                 width: InstructionWidth::Bit32,
                 operation: parse_32bit_operation(instruction_bits)?,
             })
         }
         _ => {
-            println!("instruction bits: {:#018b}", instruction_bits1);
             Ok(Instruction {
                 width: InstructionWidth::Bit16,
                 operation: parse_16bit_operation(instruction_bits1)?,
