@@ -19,7 +19,7 @@ pub enum Condition {
 }
 
 impl TryFrom<u8> for Condition {
-    type Error = ();
+    type Error = &'static str;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
@@ -38,7 +38,7 @@ impl TryFrom<u8> for Condition {
             12 => Ok(Condition::GT),
             13 => Ok(Condition::LE),
             14 => Ok(Condition::None),
-            _ => Err(()),
+            _ => Err("Invalid condition"),
         }
     }
 }
@@ -54,6 +54,6 @@ mod tests {
             assert_eq!(cond as u8, n)
         }
 
-        assert_eq!(15.try_into(), Err::<Condition, ()>(()))
+        assert_eq!(15.try_into(), Err::<Condition, &'static str>("Invalid condition"))
     }
 }
