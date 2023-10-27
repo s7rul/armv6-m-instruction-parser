@@ -93,7 +93,7 @@ fn parse_branch_misc_ctrl(input: u32) -> Result<Operation, &'static str> {
             let sysm = ((input & 0xff) as u8).try_into()?;
             Ok(Operation::MRS { d: rd, sysm: sysm })
         }
-        (0b111, 0b1111111) => {
+        (0b010, 0b1111111) => {
             // Permanently Undefined
             Err("Undefined instruction")
         }
