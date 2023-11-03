@@ -24,7 +24,7 @@ use registers::*;
 use tracing::debug;
 
 /// This function parses a input byte slice into one instruction.
-/// Returns Err(()) if instruction is invalid.
+/// Returns Err(&str) if instruction is invalid.
 pub fn parse(input: &[u8]) -> Result<Instruction, &str> {
     if input.len() < 2 {
         return Err("input not long enough for a instruction");
