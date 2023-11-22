@@ -312,10 +312,7 @@ pub enum Operation {
         m: Register,
         n: Register,
     },
-    UDFT1 {
-        imm: u32,
-    },
-    UDFT2 {
+    UDF {
         imm: u32,
     },
     UXTB {

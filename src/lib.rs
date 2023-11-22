@@ -94,8 +94,8 @@ fn parse_branch_misc_ctrl(input: u32) -> Result<Operation, &'static str> {
             Ok(Operation::MRS { d: rd, sysm: sysm })
         }
         (0b010, 0b1111111) => {
-            // Permanently Undefined
-            Err("Undefined instruction")
+            let imm = ((input & 0xf0000) >> 4) | (input & 0xfff);
+            Ok(Operation::UDF { imm: imm })
         }
         (0b101 | 0b111, _) => {
             // BL
@@ -220,7 +220,12 @@ fn parse_conditional_branch(input: u16) -> Result<Operation, &'static str> {
     let opcode = (input >> 8) & 0xf;
 
     match opcode {
-        0b1110 => Err("Undefined instruction"), // Permanently undefined
+        0b1110 => {
+            // This is by definition in a undefined instruction should generate
+            // a undefined instruction exception.
+            let imm = (input & 0xff) as u32;
+            Ok(Operation::UDF { imm })
+        },
         0b1111 => {
             // SVC
             let imm = (input & 0xff) as u32;
