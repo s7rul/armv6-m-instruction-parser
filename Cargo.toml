@@ -4,7 +4,7 @@ authors = ["Erik Serrander"]
 description = "A crate for parsing ARMv6-M thumb instructions. Usefull for decompilition and emulation etc."
 repository = "https://github.com/s7rul/armv6-m-instruction-parser"
 license = "MIT"
-version = "0.2.0"
+version = "0.3.0-rc1"
 edition = "2021"
 readme="README.md"
 
