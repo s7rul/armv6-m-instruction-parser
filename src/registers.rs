@@ -1,3 +1,5 @@
+use crate::Error;
+
 /// Normal register type.
 #[derive(Debug, PartialEq, Clone, Copy)]
 #[repr(u8)]
@@ -21,7 +23,7 @@ pub enum Register {
 }
 
 impl TryFrom<u8> for Register {
-    type Error = &'static str;
+    type Error = Error;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
@@ -41,7 +43,7 @@ impl TryFrom<u8> for Register {
             13 => Ok(Register::SP),
             14 => Ok(Register::LR),
             15 => Ok(Register::PC),
-            _ => Err("Not a valid register."),
+            _ => Err(Error::InvalidRegister),
         }
     }
 }
@@ -64,7 +66,7 @@ pub enum SpecialRegister {
 }
 
 impl TryFrom<u8> for SpecialRegister {
-    type Error = &'static str;
+    type Error = Error;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
@@ -79,7 +81,7 @@ impl TryFrom<u8> for SpecialRegister {
             9 => Ok(SpecialRegister::PSP),
             16 => Ok(SpecialRegister::PRIMASK),
             20 => Ok(SpecialRegister::CONTROL),
-            _ => Err("not a valid register"),
+            _ => Err(Error::InvalidRegister),
         }
     }
 }
@@ -119,7 +121,7 @@ mod tests {
         assert_eq!(15.try_into(), Ok(Register::PC));
         assert_eq!(
             16.try_into(),
-            Err::<Register, &str>("Not a valid register.")
+            Err::<Register, Error>(Error::InvalidRegister)
         )
     }
 

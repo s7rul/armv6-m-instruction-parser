@@ -23,21 +23,39 @@ use instructons::*;
 use registers::*;
 use tracing::debug;
 
+#[derive(Debug,PartialEq)]
+pub enum Error {
+    /// Input not long enough for a instruction.
+    InsufficientInput,
+    /// 32 bit instruction not long enough.
+    Malfromed32BitInstruction,
+    /// Opcode not matching valid 32 bit instruction.
+    Invalid32BitInstruction,
+    /// Instruction used an invalid opcode.
+    InvalidOpCode,
+    /// This instruction causes unpredictable behaviour.
+    Unpredictable,
+    /// Trying to access an invalid register.
+    InvalidRegister,
+    /// Invalid condition code used.
+    InvalidCondition
+}
+
 /// This function parses a input byte slice into one instruction.
 /// Returns Err(&str) if instruction is invalid.
-pub fn parse(input: &[u8]) -> Result<Instruction, &str> {
+pub fn parse(input: &[u8]) -> Result<Instruction, Error> {
     if input.len() < 2 {
-        return Err("input not long enough for a instruction");
+        return Err(Error::InsufficientInput);
     }
     let mut instruction_bytes1: [u8; 2] = [0; 2];
     instruction_bytes1.copy_from_slice(&input[0..2]);
     let instruction_bits1 = u16::from_le_bytes(instruction_bytes1);
 
     match (instruction_bits1 >> 11) & 0x1f {
-        0b11101 | 0b11110 | 0b11111 => {
+        0b11101..=0b11111 => {
             // Check if it is a 32-bit instruction.
             if input.len() < 4 {
-                return Err("32 bit instruction not long enough");
+                return Err(Error::Malfromed32BitInstruction);
             };
             let mut instruction_bytes2: [u8; 2] = [0; 2];
             instruction_bytes2.copy_from_slice(&input[2..4]);
@@ -59,7 +77,7 @@ pub fn parse(input: &[u8]) -> Result<Instruction, &str> {
     }
 }
 
-fn parse_32bit_operation(input: u32) -> Result<Operation, &'static str> {
+fn parse_32bit_operation(input: u32) -> Result<Operation, Error> {
     let op1 = (input >> 27) & 0x3;
     let op = (input >> 15) & 0x1;
 
@@ -68,11 +86,11 @@ fn parse_32bit_operation(input: u32) -> Result<Operation, &'static str> {
             // brach and misc control
             parse_branch_misc_ctrl(input)
         }
-        (_, _) => Err("opcode not matching valid 32 bit instruction"),
+        (_, _) => Err(Error::Invalid32BitInstruction),
     }
 }
 
-fn parse_branch_misc_ctrl(input: u32) -> Result<Operation, &'static str> {
+fn parse_branch_misc_ctrl(input: u32) -> Result<Operation, Error> {
     let op1 = (input >> 20) & 0x7f;
     let op2 = (input >> 12) & 0x7;
 
@@ -81,7 +99,7 @@ fn parse_branch_misc_ctrl(input: u32) -> Result<Operation, &'static str> {
             // MSR
             let rn = (((input >> 16) & 0xf) as u8).try_into().unwrap();
             let sysm = ((input & 0xff) as u8).try_into()?; // can fail
-            Ok(Operation::MSRReg { n: rn, sysm: sysm })
+            Ok(Operation::MSRReg { n: rn, sysm })
         }
         (0b000 | 0b010, 0b0111011) => {
             // misc control
@@ -91,11 +109,11 @@ fn parse_branch_misc_ctrl(input: u32) -> Result<Operation, &'static str> {
             // MRS
             let rd = (((input >> 8) & 0xf) as u8).try_into().unwrap();
             let sysm = ((input & 0xff) as u8).try_into()?;
-            Ok(Operation::MRS { d: rd, sysm: sysm })
+            Ok(Operation::MRS { d: rd, sysm })
         }
         (0b010, 0b1111111) => {
             let imm = ((input & 0xf0000) >> 4) | (input & 0xfff);
-            Ok(Operation::UDF { imm: imm })
+            Ok(Operation::UDF { imm })
         }
         (0b101 | 0b111, _) => {
             // BL
@@ -109,13 +127,13 @@ fn parse_branch_misc_ctrl(input: u32) -> Result<Operation, &'static str> {
             let imm = ((s << 24) | (i1 << 23) | (i2 << 22) | (imm10 << 12) | (imm11 << 1))
                 .sign_extend(25);
 
-            Ok(Operation::BL { imm: imm })
+            Ok(Operation::BL { imm })
         }
-        _ => Err("opcode not matching valid 32 bit instruction"),
+        _ => Err(Error::Invalid32BitInstruction),
     }
 }
 
-fn parse_misc_ctrl(input: u32) -> Result<Operation, &'static str> {
+fn parse_misc_ctrl(input: u32) -> Result<Operation, Error> {
     let op = (input >> 4) & 0xf;
 
     match op {
@@ -137,11 +155,11 @@ fn parse_misc_ctrl(input: u32) -> Result<Operation, &'static str> {
                 option: option as u8,
             })
         }
-        _ => Err("Not a valid op code"),
+        _ => Err(Error::InvalidOpCode),
     }
 }
 
-fn parse_16bit_operation(input: u16) -> Result<Operation, &'static str> {
+fn parse_16bit_operation(input: u16) -> Result<Operation, Error> {
     let opcode = (input >> 10) & 0x3f;
     match opcode {
         0b000000..=0b001111 => {
@@ -158,7 +176,7 @@ fn parse_16bit_operation(input: u16) -> Result<Operation, &'static str> {
             // LDR literal
             let rt: Register = (((input >> 8) & 0x7) as u8).try_into().unwrap();
             let imm = ((input & 0xff) << 2) as u32;
-            Ok(Operation::LDRLiteral { t: rt, imm: imm })
+            Ok(Operation::LDRLiteral { t: rt, imm })
         }
         0b010100..=0b100111 => {
             // A5-88
@@ -168,13 +186,13 @@ fn parse_16bit_operation(input: u16) -> Result<Operation, &'static str> {
             // A6-115
             let rd: Register = (((input >> 8) & 0x7) as u8).try_into().unwrap();
             let imm = ((input & 0xff) << 2) as u32;
-            Ok(Operation::ADR { d: rd, imm: imm })
+            Ok(Operation::ADR { d: rd, imm })
         }
         0b101010..=0b101011 => {
             // A6-111
             let rd: Register = (((input >> 8) & 0x7) as u8).try_into().unwrap();
             let imm = ((input & 0xff) << 2) as u32;
-            Ok(Operation::ADDImmSP { d: rd, imm: imm })
+            Ok(Operation::ADDImmSP { d: rd, imm })
         }
         0b101100..=0b101111 => {
             parse_misc_16_bit(input) // A5-86
@@ -184,20 +202,14 @@ fn parse_16bit_operation(input: u16) -> Result<Operation, &'static str> {
             let rn: Register = (((input >> 8) & 0x7) as u8).try_into().unwrap();
             let reg_list_bits = input & 0xff;
             let reg_list = register_list_from_bit_array(reg_list_bits);
-            Ok(Operation::STM {
-                n: rn,
-                reg_list: reg_list,
-            })
+            Ok(Operation::STM { n: rn, reg_list })
         }
         0b110010..=0b110011 => {
             // A6-137
             let rn: Register = (((input >> 8) & 0x7) as u8).try_into().unwrap();
             let reg_list_bits = input & 0xff;
             let reg_list = register_list_from_bit_array(reg_list_bits);
-            Ok(Operation::LDM {
-                n: rn,
-                reg_list: reg_list,
-            })
+            Ok(Operation::LDM { n: rn, reg_list })
         }
         0b110100..=0b110111 => {
             // A5-90
@@ -209,14 +221,14 @@ fn parse_16bit_operation(input: u16) -> Result<Operation, &'static str> {
             let imm = ((input & 0x7ff) << 1).sign_extend(12);
             Ok(Operation::B {
                 cond: Condition::None,
-                imm: imm,
+                imm,
             })
         }
-        _ => Err("not a valid opcode"),
+        _ => Err(Error::InvalidOpCode),
     }
 }
 
-fn parse_conditional_branch(input: u16) -> Result<Operation, &'static str> {
+fn parse_conditional_branch(input: u16) -> Result<Operation, Error> {
     let opcode = (input >> 8) & 0xf;
 
     match opcode {
@@ -225,25 +237,22 @@ fn parse_conditional_branch(input: u16) -> Result<Operation, &'static str> {
             // a undefined instruction exception.
             let imm = (input & 0xff) as u32;
             Ok(Operation::UDF { imm })
-        },
+        }
         0b1111 => {
             // SVC
             let imm = (input & 0xff) as u32;
-            Ok(Operation::SVC { imm: imm })
+            Ok(Operation::SVC { imm })
         }
         _ => {
             // B
             let imm = ((input & 0xff) << 1).sign_extend(9);
             let cond: Condition = (((input >> 8) & 0xf) as u8).try_into()?;
-            Ok(Operation::B {
-                cond: cond,
-                imm: imm,
-            })
+            Ok(Operation::B { cond, imm })
         }
     }
 }
 
-fn parse_load_store_instruction(input: u16) -> Result<Operation, &'static str> {
+fn parse_load_store_instruction(input: u16) -> Result<Operation, Error> {
     let op_a = (input >> 12) & 0xf;
     let op_b = (input >> 9) & 0x7;
 
@@ -337,7 +346,7 @@ fn parse_load_store_instruction(input: u16) -> Result<Operation, &'static str> {
                     t: rt,
                 })
             }
-            _ => Err("Invalid opcode"),
+            _ => Err(Error::InvalidOpCode),
         },
         (0b0110, op_b) => match op_b {
             0b000..=0b011 => {
@@ -345,24 +354,16 @@ fn parse_load_store_instruction(input: u16) -> Result<Operation, &'static str> {
                 let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
                 let rt: Register = ((input & 0x7) as u8).try_into().unwrap();
                 let imm = ((input & 0x7c0) >> 4) as u32;
-                Ok(Operation::STRImm {
-                    imm: imm,
-                    n: rn,
-                    t: rt,
-                })
+                Ok(Operation::STRImm { imm, n: rn, t: rt })
             }
             0b100..=0b111 => {
                 // LDR
                 let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
                 let rt: Register = ((input & 0x7) as u8).try_into().unwrap();
                 let imm = ((input & 0x7c0) >> 4) as u32;
-                Ok(Operation::LDRImm {
-                    imm: imm,
-                    n: rn,
-                    t: rt,
-                })
+                Ok(Operation::LDRImm { imm, n: rn, t: rt })
             }
-            _ => Err("Invalid opcode"),
+            _ => Err(Error::InvalidOpCode),
         },
         (0b0111, op_b) => match op_b {
             0b000..=0b011 => {
@@ -370,24 +371,16 @@ fn parse_load_store_instruction(input: u16) -> Result<Operation, &'static str> {
                 let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
                 let rt: Register = ((input & 0x7) as u8).try_into().unwrap();
                 let imm = ((input & 0x7c0) >> 6) as u32;
-                Ok(Operation::STRBImm {
-                    imm: imm,
-                    n: rn,
-                    t: rt,
-                })
+                Ok(Operation::STRBImm { imm, n: rn, t: rt })
             }
             0b100..=0b111 => {
                 // LDRB
                 let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
                 let rt: Register = ((input & 0x7) as u8).try_into().unwrap();
                 let imm = ((input & 0x7c0) >> 6) as u32;
-                Ok(Operation::LDRBImm {
-                    imm: imm,
-                    n: rn,
-                    t: rt,
-                })
+                Ok(Operation::LDRBImm { imm, n: rn, t: rt })
             }
-            _ => Err("Invalid opcode"),
+            _ => Err(Error::InvalidOpCode),
         },
         (0b1000, op_b) => match op_b {
             0b000..=0b011 => {
@@ -395,24 +388,16 @@ fn parse_load_store_instruction(input: u16) -> Result<Operation, &'static str> {
                 let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
                 let rt: Register = ((input & 0x7) as u8).try_into().unwrap();
                 let imm = ((input & 0x7c0) >> 5) as u32;
-                Ok(Operation::STRHImm {
-                    imm: imm,
-                    n: rn,
-                    t: rt,
-                })
+                Ok(Operation::STRHImm { imm, n: rn, t: rt })
             }
             0b100..=0b111 => {
                 // LDRH
                 let rn: Register = (((input >> 3) & 0x7) as u8).try_into().unwrap();
                 let rt: Register = ((input & 0x7) as u8).try_into().unwrap();
                 let imm = ((input & 0x7c0) >> 5) as u32;
-                Ok(Operation::LDRHImm {
-                    imm: imm,
-                    n: rn,
-                    t: rt,
-                })
+                Ok(Operation::LDRHImm { imm, n: rn, t: rt })
             }
-            _ => Err("Invalid opcode"),
+            _ => Err(Error::InvalidOpCode),
         },
         (0b1001, op_b) => match op_b {
             0b000..=0b011 => {
@@ -422,7 +407,7 @@ fn parse_load_store_instruction(input: u16) -> Result<Operation, &'static str> {
                 Ok(Operation::STRImm {
                     n: Register::SP,
                     t: rt,
-                    imm: imm,
+                    imm,
                 })
             }
             0b100..=0b111 => {
@@ -432,16 +417,16 @@ fn parse_load_store_instruction(input: u16) -> Result<Operation, &'static str> {
                 Ok(Operation::LDRImm {
                     n: Register::SP,
                     t: rt,
-                    imm: imm,
+                    imm,
                 })
             }
-            _ => Err("Invalid opcode"),
+            _ => Err(Error::InvalidOpCode),
         },
-        (_, _) => Err("Invalid opcode"),
+        (_, _) => Err(Error::InvalidOpCode),
     }
 }
 
-fn parse_special_data_branch_exchange_instruction(input: u16) -> Result<Operation, &'static str> {
+fn parse_special_data_branch_exchange_instruction(input: u16) -> Result<Operation, Error> {
     let opcode = (input >> 6) & 0xf;
     match opcode {
         0b0000..=0b0011 => {
@@ -470,8 +455,8 @@ fn parse_special_data_branch_exchange_instruction(input: u16) -> Result<Operatio
                 })
             }
         }
-        0b0100 => Err("unpredictable"), // Unpredictable
-        0b0101 | 0b0110..=0b0111 => {
+        0b0100 => Err(Error::Unpredictable), // Unpredictable
+        0b0101..=0b0111 => {
             let rm: Register = (((input >> 3) & 0xf) as u8).try_into().unwrap();
             let rn: Register = (((input & 0x7) | ((input >> 4) & 0b1000)) as u8)
                 .try_into()
@@ -497,11 +482,11 @@ fn parse_special_data_branch_exchange_instruction(input: u16) -> Result<Operatio
             let rm: Register = (((input >> 3) & 0xf) as u8).try_into().unwrap();
             Ok(Operation::BLXReg { m: rm })
         }
-        _ => Err("invalid opcode"),
+        _ => Err(Error::InvalidOpCode),
     }
 }
 
-fn parse_data_processing_instruction(input: u16) -> Result<Operation, &'static str> {
+fn parse_data_processing_instruction(input: u16) -> Result<Operation, Error> {
     let opcode = (input >> 6) & 0xf;
     match opcode {
         0b0000 => {
@@ -588,11 +573,11 @@ fn parse_data_processing_instruction(input: u16) -> Result<Operation, &'static s
             let rd: Register = ((input & 0x7) as u8).try_into().unwrap();
             Ok(Operation::MVNReg { m: rm, d: rd })
         }
-        _ => Err("invalid opcode"),
+        _ => Err(Error::InvalidOpCode),
     }
 }
 
-fn parse_arith_instructions(input: u16) -> Result<Operation, &'static str> {
+fn parse_arith_instructions(input: u16) -> Result<Operation, Error> {
     // A5-85
     let opcode = (input >> 9) & 0x1f;
     match opcode {
@@ -719,11 +704,11 @@ fn parse_arith_instructions(input: u16) -> Result<Operation, &'static str> {
                 imm: imm as u32,
             })
         }
-        _ => Err("Not a valid opcode"),
+        _ => Err(Error::InvalidOpCode),
     }
 }
 
-fn parse_misc_16_bit(input: u16) -> Result<Operation, &'static str> {
+fn parse_misc_16_bit(input: u16) -> Result<Operation, Error> {
     let opcode = (input >> 5) & 0x7f;
     match opcode {
         0b0000000..=0b0000011 => {
@@ -778,13 +763,13 @@ fn parse_misc_16_bit(input: u16) -> Result<Operation, &'static str> {
             // A6-167
             let reg_list_bits = (((input >> 8) & 0b1) << 14) | (input & 0xff);
             let reg_list = register_list_from_bit_array(reg_list_bits);
-            Ok(Operation::PUSH { reg_list: reg_list })
+            Ok(Operation::PUSH { reg_list })
         }
         0b0110011 => {
             // B4-306
             // CPS
             let im = ((input >> 4) & 0b1) == 1;
-            Ok(Operation::CPS { im: im })
+            Ok(Operation::CPS { im })
         }
         0b1010000..=0b1010001 => {
             // A6-168
@@ -815,7 +800,7 @@ fn parse_misc_16_bit(input: u16) -> Result<Operation, &'static str> {
             // POP
             let reg_list_bits = (((input >> 8) & 0b1) << 15) | (input & 0xff);
             let reg_list = register_list_from_bit_array(reg_list_bits);
-            Ok(Operation::POP { reg_list: reg_list })
+            Ok(Operation::POP { reg_list })
         }
         0b1110000..=0b1110111 => {
             // A6-122
@@ -828,17 +813,17 @@ fn parse_misc_16_bit(input: u16) -> Result<Operation, &'static str> {
             // Hint instruction
             parse_hint_instruction(input)
         }
-        _ => Err("invalid opcode"),
+        _ => Err(Error::InvalidOpCode),
     }
 }
 
-fn parse_hint_instruction(input: u16) -> Result<Operation, &'static str> {
+fn parse_hint_instruction(input: u16) -> Result<Operation, Error> {
     // A5-90
     let op_a = (input >> 4) & 0xf;
     let op_b = input & 0xf;
 
     if op_b > 0 {
-        return Err("invalid opcode");
+        return Err(Error::InvalidOpCode);
     }
 
     match op_a {
@@ -847,7 +832,7 @@ fn parse_hint_instruction(input: u16) -> Result<Operation, &'static str> {
         0b0010 => Ok(Operation::WFE),
         0b0011 => Ok(Operation::WFE),
         0b0100 => Ok(Operation::SEV),
-        _ => Err("invalid opcode"),
+        _ => Err(Error::InvalidOpCode),
     }
 }
 
