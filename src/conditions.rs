@@ -58,7 +58,7 @@ mod tests {
 
         assert_eq!(
             15.try_into(),
-            Err::<Condition, &'static str>("Invalid condition")
+            Err::<Condition, Error>(Error::InvalidCondition)
         )
     }
 }
