@@ -338,14 +338,14 @@ mod test {
             width: InstructionWidth::Bit32,
             operation: Operation::NOP,
         };
-        assert_eq!(instruction_32.is_32bit(), true);
-        assert_eq!(instruction_32.is_16bit(), false);
+        assert!(instruction_32.is_32bit());
+        assert!(!instruction_32.is_16bit());
 
         let instruction_16 = Instruction {
             width: InstructionWidth::Bit16,
             operation: Operation::NOP,
         };
-        assert_eq!(instruction_16.is_32bit(), false);
-        assert_eq!(instruction_16.is_16bit(), true);
+        assert!(!instruction_16.is_32bit());
+        assert!(instruction_16.is_16bit());
     }
 }
