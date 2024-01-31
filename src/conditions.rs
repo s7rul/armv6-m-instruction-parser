@@ -56,6 +56,9 @@ mod tests {
             assert_eq!(cond as u8, n)
         }
 
-        assert_eq!(15.try_into(), Err::<Condition, &'static str>("Invalid condition"))
+        assert_eq!(
+            15.try_into(),
+            Err::<Condition, &'static str>("Invalid condition")
+        )
     }
 }

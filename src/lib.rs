@@ -23,7 +23,7 @@ use instructons::*;
 use registers::*;
 use tracing::debug;
 
-#[derive(Debug,PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum Error {
     /// Input not long enough for a instruction.
     InsufficientInput,
@@ -38,7 +38,7 @@ pub enum Error {
     /// Trying to access an invalid register.
     InvalidRegister,
     /// Invalid condition code used.
-    InvalidCondition
+    InvalidCondition,
 }
 
 /// This function parses a input byte slice into one instruction.
